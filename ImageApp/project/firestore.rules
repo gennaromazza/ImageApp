@@ -1,0 +1,87 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return request.auth != null && 
+             request.auth.token.email == "gennaro.mazzacane@gmail.com";
+    }
+    
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Bookings collection
+    match /bookings/{bookingId} {
+      // Allow public read access for checking availability
+      allow read: if true;
+      
+      // Allow creation with validation
+      allow create: if true;
+      
+      // Only admin can update or delete
+      allow update, delete: if isAdmin();
+
+      // Galleries subcollection
+      match /galleries/{photoId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+
+      // Notes subcollection
+      match /notes/{noteId} {
+        allow read: if isAdmin() || 
+                    (isAuthenticated() && exists(/databases/$(database)/documents/bookings/$(bookingId)));
+        allow write: if isAdmin();
+      }
+    }
+
+    // Settings collection
+    match /settings/{document} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Status history collection
+    match /statusHistory/{historyId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Galleries collection (root level)
+    match /galleries/{photoId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Photo selections collection
+    match /photo_selections/{selectionId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Orders collection
+    match /orders/{orderId} {
+      allow read: if isAdmin() || 
+                  (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow write: if isAdmin();
+    }
+
+    // Products collection
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // All other collections require admin access
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}
