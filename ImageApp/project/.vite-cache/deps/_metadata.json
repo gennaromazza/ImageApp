@@ -1,148 +1,154 @@
 {
-  "hash": "14684bd0",
+  "hash": "e9640d67",
   "configHash": "b708b9af",
-  "lockfileHash": "4afe14fc",
-  "browserHash": "4d4f56ff",
+  "lockfileHash": "bbad60dd",
+  "browserHash": "4106e06c",
   "optimized": {
     "react": {
       "src": "../../node_modules/react/index.js",
       "file": "react.js",
-      "fileHash": "1b6373c8",
+      "fileHash": "90a5895e",
       "needsInterop": true
     },
     "react/jsx-dev-runtime": {
       "src": "../../node_modules/react/jsx-dev-runtime.js",
       "file": "react_jsx-dev-runtime.js",
-      "fileHash": "693d16a1",
+      "fileHash": "4ab95ea7",
       "needsInterop": true
     },
     "react/jsx-runtime": {
       "src": "../../node_modules/react/jsx-runtime.js",
       "file": "react_jsx-runtime.js",
-      "fileHash": "6f4466cd",
+      "fileHash": "2b16d9fb",
       "needsInterop": true
     },
     "@hookform/resolvers/zod": {
       "src": "../../node_modules/@hookform/resolvers/zod/dist/zod.mjs",
       "file": "@hookform_resolvers_zod.js",
-      "fileHash": "85f19d8e",
+      "fileHash": "1d61317c",
       "needsInterop": false
     },
     "date-fns": {
       "src": "../../node_modules/date-fns/esm/index.js",
       "file": "date-fns.js",
-      "fileHash": "9d21ea2a",
+      "fileHash": "63553e03",
       "needsInterop": false
     },
     "date-fns/locale": {
       "src": "../../node_modules/date-fns/esm/locale/index.js",
       "file": "date-fns_locale.js",
-      "fileHash": "b4d00a94",
+      "fileHash": "45b29db4",
       "needsInterop": false
     },
     "firebase/app": {
       "src": "../../node_modules/firebase/app/dist/esm/index.esm.js",
       "file": "firebase_app.js",
-      "fileHash": "bc2a5a0f",
+      "fileHash": "ec3e3163",
       "needsInterop": false
     },
     "firebase/auth": {
       "src": "../../node_modules/firebase/auth/dist/esm/index.esm.js",
       "file": "firebase_auth.js",
-      "fileHash": "c6bfa24c",
+      "fileHash": "0a526881",
       "needsInterop": false
     },
     "firebase/firestore": {
       "src": "../../node_modules/firebase/firestore/dist/esm/index.esm.js",
       "file": "firebase_firestore.js",
-      "fileHash": "4aca6b8e",
+      "fileHash": "d8902fae",
       "needsInterop": false
     },
     "firebase/functions": {
       "src": "../../node_modules/firebase/functions/dist/esm/index.esm.js",
       "file": "firebase_functions.js",
-      "fileHash": "287e3d46",
+      "fileHash": "e6cda730",
       "needsInterop": false
     },
     "firebase/storage": {
       "src": "../../node_modules/firebase/storage/dist/esm/index.esm.js",
       "file": "firebase_storage.js",
-      "fileHash": "8ee6fdd6",
+      "fileHash": "fec07be7",
       "needsInterop": false
     },
     "framer-motion": {
       "src": "../../node_modules/framer-motion/dist/es/index.mjs",
       "file": "framer-motion.js",
-      "fileHash": "1f5ad710",
+      "fileHash": "38d6527d",
       "needsInterop": false
     },
     "html2canvas": {
       "src": "../../node_modules/html2canvas/dist/html2canvas.esm.js",
       "file": "html2canvas.js",
-      "fileHash": "9451d3e7",
+      "fileHash": "6c32ccb8",
       "needsInterop": false
     },
     "qrcode.react": {
       "src": "../../node_modules/qrcode.react/lib/esm/index.js",
       "file": "qrcode__react.js",
-      "fileHash": "ce8c909c",
+      "fileHash": "92d692b9",
       "needsInterop": false
     },
     "react-dom/client": {
       "src": "../../node_modules/react-dom/client.js",
       "file": "react-dom_client.js",
-      "fileHash": "0a2165c9",
+      "fileHash": "59553ba0",
       "needsInterop": true
     },
     "react-hook-form": {
       "src": "../../node_modules/react-hook-form/dist/index.esm.mjs",
       "file": "react-hook-form.js",
-      "fileHash": "76b1bd32",
+      "fileHash": "8523b77e",
       "needsInterop": false
     },
     "react-hot-toast": {
       "src": "../../node_modules/react-hot-toast/dist/index.mjs",
       "file": "react-hot-toast.js",
-      "fileHash": "c99afc91",
+      "fileHash": "9cf67d6c",
       "needsInterop": false
     },
     "react-router-dom": {
       "src": "../../node_modules/react-router-dom/dist/index.js",
       "file": "react-router-dom.js",
-      "fileHash": "fdb969d1",
+      "fileHash": "2661f6f7",
       "needsInterop": false
     },
     "react-swipeable": {
       "src": "../../node_modules/react-swipeable/es/index.js",
       "file": "react-swipeable.js",
-      "fileHash": "7df92757",
+      "fileHash": "dc9940a6",
       "needsInterop": false
     },
     "recharts": {
       "src": "../../node_modules/recharts/es6/index.js",
       "file": "recharts.js",
-      "fileHash": "bc1d4ee7",
+      "fileHash": "e9df7213",
       "needsInterop": false
     },
     "zod": {
       "src": "../../node_modules/zod/lib/index.mjs",
       "file": "zod.js",
-      "fileHash": "64ee7477",
+      "fileHash": "9795743f",
       "needsInterop": false
+    },
+    "react-paginate": {
+      "src": "../../../../../../node_modules/react-paginate/dist/react-paginate.js",
+      "file": "react-paginate.js",
+      "fileHash": "ffc9b320",
+      "needsInterop": true
     }
   },
   "chunks": {
-    "chunk-TNTPHDQH": {
-      "file": "chunk-TNTPHDQH.js"
-    },
-    "chunk-IHRST5LR": {
-      "file": "chunk-IHRST5LR.js"
-    },
     "chunk-5PRLZQGD": {
       "file": "chunk-5PRLZQGD.js"
     },
     "chunk-KY7LCLZO": {
       "file": "chunk-KY7LCLZO.js"
+    },
+    "chunk-TNTPHDQH": {
+      "file": "chunk-TNTPHDQH.js"
+    },
+    "chunk-IHRST5LR": {
+      "file": "chunk-IHRST5LR.js"
     },
     "chunk-C2Q6YZR7": {
       "file": "chunk-C2Q6YZR7.js"

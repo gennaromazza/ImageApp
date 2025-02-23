@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Image, DollarSign, Save, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { Product } from '../lib/settings';
+interface Product {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  imageUrl: string;
+  enabled: boolean;
+}
 import { useSettings } from '../hooks/useSettings';
 import { updateEventSettings } from '../lib/settings';
 

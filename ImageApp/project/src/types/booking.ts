@@ -1,3 +1,5 @@
+// src/types/booking.ts
+
 export interface BookingNote {
   id: string;
   content: string;
@@ -19,4 +21,5 @@ export interface Booking {
   created_at: string;
   notes?: string;
   photoCount?: number;
+  hasNewSelection?: boolean; // <--- Aggiunta qui
 }

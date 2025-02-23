@@ -1,11 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Film, Calendar, Package2, Users, Share2, Copy, Check, Eye, 
-  Plus, Menu, X, Image, Search, Filter, ChevronDown, ChevronUp
+import {
+  Film, Calendar, Package2, Users, Share2, Copy, Check, Eye,
+  Plus, Menu, X, Image, Search, Filter
 } from 'lucide-react';
 import { db } from '../../lib/firebase';
-import { collection, query, orderBy, onSnapshot, where, getDocs, updateDoc, doc } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  orderBy,
+  onSnapshot,
+  where,
+  getDocs,
+  updateDoc,
+  doc
+} from 'firebase/firestore';
 import { useSettings } from '../../hooks/useSettings';
 import { useBookingStatus } from '../../contexts/BookingStatusContext';
 import { updateEventSettings } from '../../lib/settings';
@@ -23,8 +32,6 @@ import { toast } from 'react-hot-toast';
 
 type TabType = 'bookings' | 'products' | 'subscriptions' | 'gallery';
 
-const ITEMS_PER_PAGE = 10;
-
 const AdminPanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('bookings');
   const [showSettings, setShowSettings] = useState(false);
@@ -37,13 +44,21 @@ const AdminPanel: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
+
+  // Nuovo stato per “Load More” su mobile (prenotazioni)
+  const [mobileItemsToShow, setMobileItemsToShow] = useState(10);
+
+  // Nuovo stato per “Load More” nella sezione Galleria
+  const [galleryItemsToShow, setGalleryItemsToShow] = useState(12);
+
+  // Mostra/nasconde i filtri su mobile
   const [showFilters, setShowFilters] = useState(false);
-  
+
   const { settings } = useSettings();
   const { statuses, getStatusColor } = useBookingStatus();
   const { user } = useAuth();
 
+  // Caricamento prenotazioni
   useEffect(() => {
     if (!user) return;
 
@@ -54,7 +69,8 @@ const AdminPanel: React.FC = () => {
         orderBy('booking_time', 'asc')
       );
       
-      const unsubscribe = onSnapshot(q, 
+      const unsubscribe = onSnapshot(
+        q,
         (snapshot) => {
           const bookingsData = snapshot.docs.map(doc => ({
             id: doc.id,
@@ -72,13 +88,14 @@ const AdminPanel: React.FC = () => {
       );
 
       return () => unsubscribe();
-    } catch (error) {
-      console.error('Error setting up bookings listener:', error);
+    } catch (err) {
+      console.error('Error setting up bookings listener:', err);
       setError('Errore nella configurazione del listener delle prenotazioni');
       setLoading(false);
     }
   }, [user]);
 
+  // Quando clicco una prenotazione in Galleria, azzero “hasNewSelection”
   const handleBookingClick = async (booking: Booking) => {
     if (booking.hasNewSelection) {
       try {
@@ -92,31 +109,39 @@ const AdminPanel: React.FC = () => {
     setSelectedBooking(booking);
   };
 
+  // Restituisce l’etichetta per un dato service_type
   const getServiceLabel = (service: string) => {
     if (!settings?.serviceTypes) return service;
     const serviceType = settings.serviceTypes.find(s => s.id === service);
     return serviceType?.name || service;
   };
 
-  const filteredBookings = bookings.filter(booking => {
-    const matchesSearch = 
-      (booking.firstName + ' ' + booking.lastName).toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.phone?.includes(searchTerm) ||
-      booking.ticket_number?.toLowerCase().includes(searchTerm.toLowerCase());
+  // Filtriamo globalmente in base ai filtri di testo/status/servizio
+  const filteredBookings = useMemo(() => {
+    return bookings.filter(booking => {
+      const matchesSearch =
+        (booking.firstName + ' ' + booking.lastName)
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        booking.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        booking.phone?.includes(searchTerm) ||
+        booking.ticket_number?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus = statusFilter === 'all' || booking.status === statusFilter;
-    const matchesService = serviceFilter === 'all' || booking.service_type === serviceFilter;
+      const matchesStatus =
+        statusFilter === 'all' || booking.status === statusFilter;
+      const matchesService =
+        serviceFilter === 'all' || booking.service_type === serviceFilter;
 
-    return matchesSearch && matchesStatus && matchesService;
-  });
+      return matchesSearch && matchesStatus && matchesService;
+    });
+  }, [bookings, searchTerm, statusFilter, serviceFilter]);
 
-  // Calculate pagination
-  const totalPages = Math.ceil(filteredBookings.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedBookings = filteredBookings.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-
+  // ---------------------------------------------------------
+  // SEZIONE GALLERIA: “renderGalleryContent”
+  // Implementiamo un “Load More” manuale per la lista galleria
+  // ---------------------------------------------------------
   const renderGalleryContent = () => {
+    // Se ho selezionato una prenotazione, mostro il GalleryManager
     if (selectedBooking) {
       return (
         <GalleryManager
@@ -127,9 +152,12 @@ const AdminPanel: React.FC = () => {
       );
     }
 
-    // Show bookings list when no booking is selected
+    // Se non ho selezionato prenotazioni, mostro la lista con “Load More”
+    const displayedGalleryBookings = filteredBookings.slice(0, galleryItemsToShow);
+
     return (
       <div className="space-y-6">
+        {/* Header sezione galleria */}
         <div className="bg-gray-800 p-6 rounded-lg">
           <div className="flex justify-between items-start">
             <div>
@@ -143,6 +171,7 @@ const AdminPanel: React.FC = () => {
             </div>
           </div>
 
+          {/* Campo di ricerca */}
           <div className="relative mt-6">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
             <input
@@ -155,8 +184,9 @@ const AdminPanel: React.FC = () => {
           </div>
         </div>
 
+        {/* Lista prenotazioni da mostrare in Galleria */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredBookings.map((booking) => (
+          {displayedGalleryBookings.map((booking) => (
             <motion.div
               key={booking.id}
               initial={{ opacity: 0, y: 20 }}
@@ -193,25 +223,14 @@ const AdminPanel: React.FC = () => {
           ))}
         </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex justify-between items-center mt-6 bg-gray-700 p-4 rounded-lg">
+        {/* Bottone “Carica Altri” se ci sono altre prenotazioni da mostrare */}
+        {displayedGalleryBookings.length < filteredBookings.length && (
+          <div className="flex justify-center mt-6 bg-gray-700 p-4 rounded-lg">
             <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500 disabled:opacity-50"
+              onClick={() => setGalleryItemsToShow(prev => prev + 12)}
+              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500"
             >
-              Precedente
-            </button>
-            <span className="text-gray-300">
-              Pagina {currentPage} di {totalPages}
-            </span>
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500 disabled:opacity-50"
-            >
-              Successiva
+              Carica Altri
             </button>
           </div>
         )}
@@ -219,6 +238,9 @@ const AdminPanel: React.FC = () => {
     );
   };
 
+  // ---------------------------------------------------------
+  // RENDER PRINCIPALE
+  // ---------------------------------------------------------
   if (loading) {
     return (
       <div className="flex items-center justify-center h-32">
@@ -273,8 +295,8 @@ const AdminPanel: React.FC = () => {
                     setShowMobileMenu(false);
                   }}
                   className={`p-3 rounded-lg flex items-center gap-2 ${
-                    activeTab === 'bookings' 
-                      ? 'bg-[--theater-gold] text-black' 
+                    activeTab === 'bookings'
+                      ? 'bg-[--theater-gold] text-black'
                       : 'bg-gray-600 text-white'
                   }`}
                 >
@@ -287,8 +309,8 @@ const AdminPanel: React.FC = () => {
                     setShowMobileMenu(false);
                   }}
                   className={`p-3 rounded-lg flex items-center gap-2 ${
-                    activeTab === 'gallery' 
-                      ? 'bg-[--theater-gold] text-black' 
+                    activeTab === 'gallery'
+                      ? 'bg-[--theater-gold] text-black'
                       : 'bg-gray-600 text-white'
                   }`}
                 >
@@ -301,8 +323,8 @@ const AdminPanel: React.FC = () => {
                     setShowMobileMenu(false);
                   }}
                   className={`p-3 rounded-lg flex items-center gap-2 ${
-                    activeTab === 'products' 
-                      ? 'bg-[--theater-gold] text-black' 
+                    activeTab === 'products'
+                      ? 'bg-[--theater-gold] text-black'
                       : 'bg-gray-600 text-white'
                   }`}
                 >
@@ -315,8 +337,8 @@ const AdminPanel: React.FC = () => {
                     setShowMobileMenu(false);
                   }}
                   className={`p-3 rounded-lg flex items-center gap-2 ${
-                    activeTab === 'subscriptions' 
-                      ? 'bg-[--theater-gold] text-black' 
+                    activeTab === 'subscriptions'
+                      ? 'bg-[--theater-gold] text-black'
                       : 'bg-gray-600 text-white'
                   }`}
                 >
@@ -355,8 +377,8 @@ const AdminPanel: React.FC = () => {
           <button
             onClick={() => setActiveTab('bookings')}
             className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-              activeTab === 'bookings' 
-                ? 'bg-[--theater-gold] text-black' 
+              activeTab === 'bookings'
+                ? 'bg-[--theater-gold] text-black'
                 : 'text-white hover:bg-gray-700'
             }`}
           >
@@ -366,8 +388,8 @@ const AdminPanel: React.FC = () => {
           <button
             onClick={() => setActiveTab('products')}
             className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-              activeTab === 'products' 
-                ? 'bg-[--theater-gold] text-black' 
+              activeTab === 'products'
+                ? 'bg-[--theater-gold] text-black'
                 : 'text-white hover:bg-gray-700'
             }`}
           >
@@ -377,8 +399,8 @@ const AdminPanel: React.FC = () => {
           <button
             onClick={() => setActiveTab('gallery')}
             className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-              activeTab === 'gallery' 
-                ? 'bg-[--theater-gold] text-black' 
+              activeTab === 'gallery'
+                ? 'bg-[--theater-gold] text-black'
                 : 'text-white hover:bg-gray-700'
             }`}
           >
@@ -410,14 +432,20 @@ const AdminPanel: React.FC = () => {
         </div>
       </div>
 
+      {/* Tab Prodotti */}
       {activeTab === 'products' && <ProductsManager />}
+
+      {/* Tab Abbonamenti */}
       {activeTab === 'subscriptions' && <SubscriptionsPage />}
+
+      {/* TAB PRENOTAZIONI */}
       {activeTab === 'bookings' && (
         <div>
           <h2 className="text-3xl text-white text-center mb-8 font-marquee">
             Gestione Prenotazioni
           </h2>
           
+          {/* Pannello Impostazioni */}
           {showSettings && settings && (
             <SettingsPanel
               settings={settings}
@@ -439,15 +467,17 @@ const AdminPanel: React.FC = () => {
             />
           </div>
 
-          {/* Mobile Bookings List */}
+          {/* Mobile Bookings List con “Load More” */}
           <div className="lg:hidden grid grid-cols-1 gap-4">
-            {paginatedBookings.map((booking) => (
+            {filteredBookings.slice(0, mobileItemsToShow).map((booking) => (
               <motion.div
                 key={booking.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className={`bg-gray-700 p-4 rounded-lg ${
-                  booking.hasNewSelection ? 'bg-green-500/20 border border-green-500' : ''
+                  booking.hasNewSelection
+                    ? 'bg-green-500/20 border border-green-500'
+                    : ''
                 }`}
                 onClick={() => handleBookingClick(booking)}
               >
@@ -460,7 +490,10 @@ const AdminPanel: React.FC = () => {
                       {booking.booking_date} {booking.booking_time}
                     </p>
                   </div>
-                  <div className={`px-2 py-1 rounded-full text-sm`} style={{ backgroundColor: getStatusColor(booking.status) }}>
+                  <div
+                    className={`px-2 py-1 rounded-full text-sm`}
+                    style={{ backgroundColor: getStatusColor(booking.status) }}
+                  >
                     {statuses.find(s => s.id === booking.status)?.name}
                   </div>
                 </div>
@@ -477,10 +510,22 @@ const AdminPanel: React.FC = () => {
             ))}
           </div>
 
-          {/* Desktop Table */}
+          {/* Bottone “Carica Altri” su mobile */}
+          {filteredBookings.length > mobileItemsToShow && (
+            <div className="lg:hidden flex justify-center mt-4">
+              <button
+                onClick={() => setMobileItemsToShow(m => m + 10)}
+                className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600"
+              >
+                Carica Altri
+              </button>
+            </div>
+          )}
+
+          {/* Desktop Table: passiamo TUTTE le prenotazioni filtrate a BookingTable */}
           <div className="hidden lg:block">
             <BookingTable
-              bookings={paginatedBookings}
+              bookings={filteredBookings}
               serviceTypes={settings?.serviceTypes || []}
               bookingStatuses={statuses}
               getServiceLabel={getServiceLabel}
@@ -488,29 +533,7 @@ const AdminPanel: React.FC = () => {
             />
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-between items-center mt-6 bg-gray-700 p-4 rounded-lg">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500 disabled:opacity-50"
-              >
-                Precedente
-              </button>
-              <span className="text-gray-300">
-                Pagina {currentPage} di {totalPages}
-              </span>
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500 disabled:opacity-50"
-              >
-                Successiva
-              </button>
-            </div>
-          )}
-
+          {/* Form per creare Prenotazioni manualmente */}
           <ManualBookingForm
             isOpen={showManualBooking}
             onClose={() => setShowManualBooking(false)}
@@ -522,6 +545,7 @@ const AdminPanel: React.FC = () => {
         </div>
       )}
 
+      {/* TAB GALLERIA */}
       {activeTab === 'gallery' && renderGalleryContent()}
     </div>
   );

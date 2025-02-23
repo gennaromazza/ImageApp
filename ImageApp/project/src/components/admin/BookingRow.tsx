@@ -9,11 +9,12 @@ import NotifyAppWhtz from './NotifyAppWhtz';
 interface BookingRowProps {
   booking: Booking;
   onEdit: () => void;
-  onDelete: () => void;
+  onDelete: () => Promise<void>;
   getServiceLabel: (service: string) => string;
   getStatusColor: (status: string) => string;
   onClick: () => void;
   isSelected: boolean;
+  className?: string;
 }
 
 const BookingRow: React.FC<BookingRowProps> = ({
