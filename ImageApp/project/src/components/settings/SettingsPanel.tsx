@@ -6,7 +6,6 @@ import GeneralSettings from './GeneralSettings';
 import ServiceTypes from './ServiceTypes';
 import BreakTimes from './BreakTimes';
 import StatusManager from './StatusManager';
-import SocialSharingSettings from './SocialSharingSettings';
 import TicketTemplateSettings from './TicketTemplateSettings';
 import IntroAnimationSettings from './IntroAnimationSettings';
 import { useBookingStatus } from '../../contexts/BookingStatusContext';
@@ -24,7 +23,6 @@ const tabs: { id: TabType; label: string; icon: React.ElementType }[] = [
   { id: 'status', label: 'Stati Prenotazione', icon: SettingsIcon },
   { id: 'services', label: 'Servizi', icon: SettingsIcon },
   { id: 'breaks', label: 'Pause', icon: SettingsIcon },
-  { id: 'social', label: 'Condivisione', icon: Share2 },
   { id: 'ticket', label: 'Template Ticket', icon: Ticket },
   { id: 'intro', label: 'Intro', icon: Film }
 ];
@@ -137,12 +135,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onSave, onClose
           />
         );
       case 'social':
-        return (
-          <SocialSharingSettings
-            settings={currentSettings}
-            onChange={(changes) => setCurrentSettings({ ...currentSettings, ...changes })}
-          />
-        );
+     
+        
+        
       case 'ticket':
         return (
           <TicketTemplateSettings

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Image, Search, AlertCircle, Calendar, User, Phone, Link2, 
-  Loader2, X, Check, Download, Trash2, Share2, MessageSquare, 
-  Eye, FileText 
+import {
+  Image, Search, AlertCircle, Calendar, User, Phone, Link2,
+  Loader2, X, Check, Download, Trash2, Share2, MessageSquare,
+  Eye, FileText
 } from 'lucide-react';
 import { db, storage } from '../../lib/firebase';
 import { collection, query, where, getDocs, addDoc, deleteDoc, orderBy, doc, getDoc } from 'firebase/firestore';
@@ -11,6 +11,9 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage
 import PhotoViewer from './PhotoViewer';
 import PhotoSelections from './PhotoSelections';
 import { toast } from 'react-hot-toast';
+
+// ➜ Import per la compressione lato client
+import imageCompression from 'browser-image-compression';
 
 // Storage configuration
 const STORAGE_BUCKET = 'gs://cinema-70fbc.firebasestorage.app';
@@ -28,7 +31,13 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ bookingId, isOpen = tru
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  // Progresso di caricamento (numero di file completati / tot)
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  // Progresso di compressione corrente (0-100)
+  const [compressionProgress, setCompressionProgress] = useState(0);
+
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState<number | null>(null);
   const [bookingDetails, setBookingDetails] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'photos' | 'selections'>('photos');
@@ -36,7 +45,7 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ bookingId, isOpen = tru
   useEffect(() => {
     const loadBookingDetails = async () => {
       if (!bookingId) return;
-      
+
       try {
         const bookingDoc = await getDoc(doc(db, 'bookings', bookingId));
         if (bookingDoc.exists()) {
@@ -53,25 +62,25 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ bookingId, isOpen = tru
   useEffect(() => {
     const loadPhotos = async () => {
       if (!bookingId) return;
-      
+
       setLoading(true);
       setError(null);
-      
+
       try {
         const photosRef = collection(db, 'galleries');
         const q = query(
-          photosRef, 
+          photosRef,
           where('bookingId', '==', bookingId),
           orderBy('uploadedAt', 'desc')
         );
-        
+
         const snapshot = await getDocs(q);
         const photosData = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
           uploadedAt: doc.data().uploadedAt?.toDate()
         }));
-        
+
         setPhotos(photosData);
       } catch (error) {
         console.error('Error loading photos:', error);
@@ -85,25 +94,33 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ bookingId, isOpen = tru
     loadPhotos();
   }, [bookingId]);
 
-  const validateImage = (file: File): Promise<boolean> => {
+  /**
+   * Invece di scartare i file se superano 5MB o 1920px,
+   * mostriamo un avviso ma continuiamo per poi comprimerli.
+   */
+  const checkAndWarnImage = (file: File): Promise<boolean> => {
     return new Promise((resolve) => {
       if (file.size > MAX_FILE_SIZE) {
-        toast.error(`Il file ${file.name} supera i 5MB`);
-        resolve(false);
-        return;
+        toast(
+          `Attenzione: ${file.name} supera i 5MB. Tenterò di comprimerla...`,
+          { icon: '⚠️' }
+        );
       }
 
       const img = document.createElement('img');
       const objectUrl = URL.createObjectURL(file);
-      
+
       img.onload = () => {
         URL.revokeObjectURL(objectUrl);
+
         if (img.width > MAX_IMAGE_DIMENSION || img.height > MAX_IMAGE_DIMENSION) {
-          toast.error(`L'immagine ${file.name} supera ${MAX_IMAGE_DIMENSION}px`);
-          resolve(false);
-        } else {
-          resolve(true);
+          toast(
+            `Attenzione: ${file.name} supera ${MAX_IMAGE_DIMENSION}px. Ridimensiono...`,
+            { icon: '⚠️' }
+          );
         }
+        // In ogni caso, risolviamo true: andremo a comprimerla
+        resolve(true);
       };
 
       img.onerror = () => {
@@ -118,18 +135,20 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ bookingId, isOpen = tru
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!bookingId || !event.target.files?.length) return;
-    
+
     setUploading(true);
     setError(null);
     setUploadProgress(0);
-    
+    setCompressionProgress(0);
+
     try {
       const files = Array.from(event.target.files);
-      const validFiles = [];
-      
+      const validFiles: File[] = [];
+
+      // Prima verifichiamo/mostriamo avvisi su dimensioni, ma non scartiamo
       for (const file of files) {
-        const isValid = await validateImage(file);
-        if (isValid) validFiles.push(file);
+        const canProcess = await checkAndWarnImage(file);
+        if (canProcess) validFiles.push(file);
       }
 
       if (validFiles.length === 0) {
@@ -140,47 +159,63 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ bookingId, isOpen = tru
 
       const totalFiles = validFiles.length;
       let completedFiles = 0;
-      
+
       for (const file of validFiles) {
-        // Create storage reference with correct bucket path
-        const storageRef = ref(storage, `${STORAGE_BUCKET}/galleries/${bookingId}/${file.name}`);
-        
-        // Upload file
-        await uploadBytes(storageRef, file);
+        // 1. Comprimi il file in locale
+        toast(`Comprimo: ${file.name}`, { icon: '🗜️' });
+
+        const compressedFile = await imageCompression(file, {
+          maxSizeMB: 1, // Prova a portare il file ~1MB o meno
+          maxWidthOrHeight: 1920,
+          useWebWorker: true,
+          onProgress: (progress: number) => {
+            // progress è un numero da 0 a 100
+            setCompressionProgress(progress);
+          }
+        });
+
+        // 2. Carichiamo su Firebase Storage
+        const storageRef = ref(
+          storage,
+          `${STORAGE_BUCKET}/galleries/${bookingId}/${file.name}`
+        );
+
+        await uploadBytes(storageRef, compressedFile);
         const downloadUrl = await getDownloadURL(storageRef);
-        
-        // Add to Firestore
+
+        // 3. Salviamo i riferimenti in Firestore
         await addDoc(collection(db, 'galleries'), {
           bookingId,
           url: downloadUrl,
           name: file.name,
           uploadedAt: new Date()
         });
-        
+
         completedFiles++;
         setUploadProgress((completedFiles / totalFiles) * 100);
+
         toast.success(`Foto ${completedFiles}/${totalFiles} caricata`);
       }
-      
-      // Refresh photos list
+
+      // Ricarichiamo la lista delle foto
       const photosRef = collection(db, 'galleries');
       const q = query(
-        photosRef, 
+        photosRef,
         where('bookingId', '==', bookingId),
         orderBy('uploadedAt', 'desc')
       );
-      
+
       const snapshot = await getDocs(q);
       const photosData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         uploadedAt: doc.data().uploadedAt?.toDate()
       }));
-      
+
       setPhotos(photosData);
       setUploadProgress(0);
+      setCompressionProgress(0);
       toast.success('Tutte le foto sono state caricate con successo!');
-      
     } catch (error) {
       console.error('Error uploading photos:', error);
       toast.error('Errore durante il caricamento delle foto');
@@ -192,12 +227,12 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ bookingId, isOpen = tru
 
   const handleDeletePhoto = async (photo: any) => {
     if (!bookingId) return;
-    
+
     try {
       // Delete from storage with correct bucket path
       const storageRef = ref(storage, `${STORAGE_BUCKET}/galleries/${bookingId}/${photo.name}`);
       await deleteObject(storageRef);
-      
+
       // Delete from Firestore
       await deleteDoc(doc(db, 'galleries', photo.id));
       setPhotos(prev => prev.filter(p => p.id !== photo.id));
@@ -288,7 +323,7 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ bookingId, isOpen = tru
                   Condividi su WhatsApp
                 </button>
               )}
-              
+
               <button
                 onClick={openGallery}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -371,21 +406,41 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ bookingId, isOpen = tru
                   hover:file:bg-yellow-500
                   disabled:opacity-50"
               />
-              
+
+              {/* Se in fase di caricamento, mostriamo due feedback:
+                  - Progresso di compressione del singolo file
+                  - Progresso di upload (sul totale file) */}
               {uploading && (
-                <div className="mt-4">
-                  <div className="relative h-2 bg-gray-700 rounded-full overflow-hidden">
-                    <motion.div 
-                      className="absolute inset-0 bg-[--theater-gold]"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${uploadProgress}%` }}
-                      transition={{ duration: 0.3 }}
-                    />
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <p className="text-sm text-gray-400 mb-1 flex items-center gap-2">
+                      <Loader2 className="animate-spin" size={16} />
+                      Compressione in corso... {Math.round(compressionProgress)}%
+                    </p>
+                    <div className="relative h-2 bg-gray-700 rounded-full overflow-hidden">
+                      <motion.div
+                        className="absolute inset-0 bg-[--theater-gold]"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${compressionProgress}%` }}
+                        transition={{ duration: 0.3 }}
+                      />
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-400 mt-2 flex items-center gap-2">
-                    <Loader2 className="animate-spin" size={16} />
-                    Caricamento in corso... {Math.round(uploadProgress)}%
-                  </p>
+
+                  <div>
+                    <p className="text-sm text-gray-400 mb-1 flex items-center gap-2">
+                      <Loader2 className="animate-spin" size={16} />
+                      Caricamento su Firebase... {Math.round(uploadProgress)}%
+                    </p>
+                    <div className="relative h-2 bg-gray-700 rounded-full overflow-hidden">
+                      <motion.div
+                        className="absolute inset-0 bg-blue-500"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${uploadProgress}%` }}
+                        transition={{ duration: 0.3 }}
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -441,12 +496,16 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ bookingId, isOpen = tru
             photos={photos}
             currentIndex={currentPhotoIndex}
             onClose={() => setCurrentPhotoIndex(null)}
-            onNext={() => setCurrentPhotoIndex(prev => 
-              prev !== null && prev < photos.length - 1 ? prev + 1 : prev
-            )}
-            onPrev={() => setCurrentPhotoIndex(prev => 
-              prev !== null && prev > 0 ? prev - 1 : prev
-            )}
+            onNext={() =>
+              setCurrentPhotoIndex(prev =>
+                prev !== null && prev < photos.length - 1 ? prev + 1 : prev
+              )
+            }
+            onPrev={() =>
+              setCurrentPhotoIndex(prev =>
+                prev !== null && prev > 0 ? prev - 1 : prev
+              )
+            }
           />
         )}
       </div>
